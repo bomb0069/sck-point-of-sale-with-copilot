@@ -7,7 +7,6 @@ import {
   Users, 
   BarChart3, 
   Store,
-  Tag,
   TrendingUp,
   DollarSign
 } from 'lucide-react';
@@ -91,7 +90,7 @@ const Dashboard: React.FC = () => {
                     Welcome back, {user?.full_name}
                   </h1>
                   <p className="mt-1 text-sm text-gray-500">
-                    {user?.role.charAt(0).toUpperCase() + user?.role.slice(1)} Dashboard
+                    {user?.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : 'User'} Dashboard
                   </p>
                 </div>
               </div>
