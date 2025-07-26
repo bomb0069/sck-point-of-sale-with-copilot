@@ -118,7 +118,7 @@ const Login: React.FC = () => {
             <div className="mt-6 text-center">
               <div className="text-sm text-gray-600">
                 <strong>Username:</strong> admin<br />
-                <strong>Password:</strong> admin123
+                <strong>Password:</strong> password
               </div>
             </div>
           </div>
