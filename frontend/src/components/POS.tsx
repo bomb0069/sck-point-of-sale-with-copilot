@@ -1,8 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, Minus, Trash2, ShoppingCart, DollarSign } from 'lucide-react';
+import { Search, Plus, Minus, Trash2, ShoppingCart, DollarSign, X } from 'lucide-react';
 import { Product, CartItem, Cart } from '../types';
 import * as api from '../services/api';
 import { formatThaiCurrency, convertUsdToThb } from '../utils/currency';
+
+// Thai banknotes and coins
+const THAI_DENOMINATIONS = [
+  { value: 1000, label: '฿1,000', color: 'bg-purple-100 border-purple-300 text-purple-800' },
+  { value: 500, label: '฿500', color: 'bg-purple-50 border-purple-200 text-purple-700' },
+  { value: 100, label: '฿100', color: 'bg-red-100 border-red-300 text-red-800' },
+  { value: 50, label: '฿50', color: 'bg-blue-100 border-blue-300 text-blue-800' },
+  { value: 20, label: '฿20', color: 'bg-green-100 border-green-300 text-green-800' },
+  { value: 10, label: '฿10', color: 'bg-yellow-100 border-yellow-300 text-yellow-800' },
+  { value: 5, label: '฿5', color: 'bg-gray-100 border-gray-300 text-gray-800' },
+  { value: 1, label: '฿1', color: 'bg-gray-50 border-gray-200 text-gray-700' },
+];
 
 const POS: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -15,6 +27,9 @@ const POS: React.FC = () => {
     total: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [cashReceived, setCashReceived] = useState(0);
+  const [selectedBanknotes, setSelectedBanknotes] = useState<{[key: number]: number}>({});
 
   useEffect(() => {
     loadProducts();
@@ -155,14 +170,90 @@ const POS: React.FC = () => {
   };
 
   const processPayment = async () => {
+    setShowPaymentModal(true);
+  };
+
+  const handleBanknoteSelect = (denomination: number) => {
+    setSelectedBanknotes(prev => ({
+      ...prev,
+      [denomination]: (prev[denomination] || 0) + 1
+    }));
+  };
+
+  const handleBanknoteRemove = (denomination: number) => {
+    setSelectedBanknotes(prev => {
+      const newCount = (prev[denomination] || 0) - 1;
+      if (newCount <= 0) {
+        const { [denomination]: _, ...rest } = prev;
+        return rest;
+      }
+      return {
+        ...prev,
+        [denomination]: newCount
+      };
+    });
+  };
+
+  const calculateCashTotal = () => {
+    return Object.entries(selectedBanknotes).reduce((total, [denomination, count]) => {
+      return total + (parseInt(denomination) * count);
+    }, 0);
+  };
+
+  const getChangeAmount = () => {
+    const cashTotal = calculateCashTotal();
+    return cashTotal - cart.total;
+  };
+
+  const calculateOptimalChange = (changeAmount: number) => {
+    if (changeAmount <= 0) return [];
+    
+    const change: Array<{denomination: number, count: number, label: string}> = [];
+    let remaining = changeAmount;
+    
+    for (const denom of THAI_DENOMINATIONS) {
+      if (remaining >= denom.value) {
+        const count = Math.floor(remaining / denom.value);
+        change.push({
+          denomination: denom.value,
+          count,
+          label: denom.label
+        });
+        remaining = remaining % denom.value;
+      }
+    }
+    
+    return change;
+  };
+
+  const completeCashPayment = async () => {
+    const cashTotal = calculateCashTotal();
+    const changeAmount = getChangeAmount();
+    
+    if (cashTotal < cart.total) {
+      alert('Insufficient cash received!');
+      return;
+    }
+
     try {
-      // TODO: Implement actual payment processing
-      alert('Payment processed successfully!');
+      // TODO: Save transaction to backend
+      alert(`Payment completed!\nCash received: ฿${cashTotal.toFixed(2)}\nChange: ฿${changeAmount.toFixed(2)}`);
+      
+      // Reset everything
       clearCart();
+      setShowPaymentModal(false);
+      setCashReceived(0);
+      setSelectedBanknotes({});
     } catch (error) {
       console.error('Payment failed:', error);
       alert('Payment failed. Please try again.');
     }
+  };
+
+  const closeCashPayment = () => {
+    setShowPaymentModal(false);
+    setCashReceived(0);
+    setSelectedBanknotes({});
   };
 
   const filteredProducts = products.filter(product =>
@@ -316,6 +407,126 @@ const POS: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Cash Payment Modal */}
+      {showPaymentModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold">Cash Payment</h2>
+              <button
+                onClick={closeCashPayment}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            {/* Order Summary */}
+            <div className="bg-gray-50 rounded-lg p-4 mb-4">
+              <h3 className="font-semibold mb-2">Order Total</h3>
+              <div className="text-2xl font-bold text-primary-600">
+                ฿{cart.total.toFixed(2)}
+              </div>
+            </div>
+
+            {/* Cash Selection */}
+            <div className="mb-4">
+              <h3 className="font-semibold mb-3">Select Banknotes & Coins</h3>
+              <div className="grid grid-cols-2 gap-2">
+                {THAI_DENOMINATIONS.map((denom) => (
+                  <div key={denom.value} className="text-center">
+                    <button
+                      onClick={() => handleBanknoteSelect(denom.value)}
+                      className={`w-full p-3 rounded-lg border-2 ${denom.color} hover:opacity-80 transition-opacity`}
+                    >
+                      <div className="font-semibold">{denom.label}</div>
+                    </button>
+                    {!!selectedBanknotes[denom.value] && (
+                      <div className="mt-1 flex items-center justify-center space-x-2">
+                        <button
+                          onClick={() => handleBanknoteRemove(denom.value)}
+                          className="bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm"
+                        >
+                          -
+                        </button>
+                        <span className="text-sm font-medium">
+                          {selectedBanknotes[denom.value]}
+                        </span>
+                        <button
+                          onClick={() => handleBanknoteSelect(denom.value)}
+                          className="bg-green-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm"
+                        >
+                          +
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Cash Summary */}
+            <div className="bg-blue-50 rounded-lg p-4 mb-4">
+              <div className="flex justify-between items-center mb-2">
+                <span className="font-semibold">Cash Received:</span>
+                <span className="text-lg font-bold">
+                  ฿{calculateCashTotal().toFixed(2)}
+                </span>
+              </div>
+              
+              {calculateCashTotal() > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="font-semibold">Change:</span>
+                  <span className={`text-lg font-bold ${getChangeAmount() >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    ฿{getChangeAmount().toFixed(2)}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Change Breakdown */}
+            {getChangeAmount() > 0 && (
+              <div className="bg-green-50 rounded-lg p-4 mb-4">
+                <h4 className="font-semibold mb-2">Change Breakdown:</h4>
+                <div className="space-y-1">
+                  {calculateOptimalChange(getChangeAmount()).map((item) => (
+                    <div key={`${item.denomination}-${item.count}`} className="flex justify-between text-sm">
+                      <span>{item.label} × {item.count}</span>
+                      <span>฿{(item.denomination * item.count).toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="space-y-2">
+              <button
+                onClick={completeCashPayment}
+                disabled={calculateCashTotal() < cart.total}
+                className={`w-full py-3 px-4 rounded-lg font-medium ${
+                  calculateCashTotal() >= cart.total
+                    ? 'bg-green-600 hover:bg-green-700 text-white'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
+              >
+                {calculateCashTotal() < cart.total 
+                  ? `Need ฿${(cart.total - calculateCashTotal()).toFixed(2)} more`
+                  : 'Complete Payment'
+                }
+              </button>
+              
+              <button
+                onClick={closeCashPayment}
+                className="w-full py-2 px-4 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
