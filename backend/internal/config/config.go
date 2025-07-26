@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"strings"
 )
 
 // Config holds application configuration
@@ -15,14 +16,20 @@ type Config struct {
 
 // Load reads configuration from environment variables
 func Load() *Config {
+	frontendURL := getEnv("FRONTEND_URL", "http://localhost:3000")
+	origins := strings.Split(frontendURL, ",")
+	
+	// Trim whitespace from each origin
+	for i, origin := range origins {
+		origins[i] = strings.TrimSpace(origin)
+	}
+	
 	return &Config{
 		Environment: getEnv("ENVIRONMENT", "development"),
 		DatabaseURL: getEnv("DATABASE_URL", "root:password@tcp(localhost:3306)/sck_pos?charset=utf8mb4&parseTime=True&loc=Local"),
 		JWTSecret:   getEnv("JWT_SECRET", "your-secret-key-change-in-production"),
 		Port:        getEnv("PORT", "8080"),
-		AllowedOrigins: []string{
-			getEnv("FRONTEND_URL", "http://localhost:3000"),
-		},
+		AllowedOrigins: origins,
 	}
 }
 

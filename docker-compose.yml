@@ -35,7 +35,7 @@ services:
       - DATABASE_URL=posuser:pospassword@tcp(mysql:3306)/sck_pos?charset=utf8mb4&parseTime=True&loc=Local
       - JWT_SECRET=development-secret-change-in-production
       - PORT=8080
-      - FRONTEND_URL=http://localhost:3001
+      - FRONTEND_URL=http://localhost:3001,http://127.0.0.1:3001
     ports:
       - "8081:8080"
     depends_on:
