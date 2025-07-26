@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, Plus, Minus, Trash2, ShoppingCart, DollarSign } from 'lucide-react';
 import { Product, CartItem, Cart } from '../types';
 import * as api from '../services/api';
+import { formatThaiCurrency, convertUsdToThb } from '../utils/currency';
 
 const POS: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -25,7 +26,7 @@ const POS: React.FC = () => {
 
   const loadProducts = async () => {
     try {
-      // Since the backend isn't fully implemented, we'll use mock data
+      // Mock data with Thai Baht prices
       const mockProducts: Product[] = [
         {
           id: 1,
@@ -34,8 +35,8 @@ const POS: React.FC = () => {
           description: 'Premium medium roast coffee beans',
           category_id: 1,
           category_name: 'Beverages',
-          price: 12.99,
-          cost: 8.50,
+          price: 450.00, // ~$12.99 converted to THB
+          cost: 297.50,
           stock_quantity: 50,
           min_stock_level: 10,
           barcode: '1234567890123',
@@ -50,8 +51,8 @@ const POS: React.FC = () => {
           description: 'Professional A4 notebook',
           category_id: 2,
           category_name: 'Office Supplies',
-          price: 5.99,
-          cost: 3.50,
+          price: 210.00, // ~$5.99 converted to THB
+          cost: 122.50,
           stock_quantity: 25,
           min_stock_level: 5,
           barcode: '1234567890124',
@@ -66,8 +67,8 @@ const POS: React.FC = () => {
           description: 'Reusable water bottle',
           category_id: 1,
           category_name: 'Beverages',
-          price: 8.99,
-          cost: 5.00,
+          price: 315.00, // ~$8.99 converted to THB
+          cost: 175.00,
           stock_quantity: 30,
           min_stock_level: 8,
           barcode: '1234567890125',
@@ -212,7 +213,7 @@ const POS: React.FC = () => {
                 <div className="flex-1">
                   <h3 className="text-sm font-medium text-gray-900 mb-1">{product.name}</h3>
                   <p className="text-xs text-gray-500 mb-2">{product.category_name}</p>
-                  <p className="text-lg font-bold text-primary-600">${product.price.toFixed(2)}</p>
+                  <p className="text-lg font-bold text-primary-600">฿{product.price.toFixed(2)}</p>
                 </div>
                 <div className="mt-2">
                   <p className="text-xs text-gray-500">Stock: {product.stock_quantity}</p>
@@ -258,7 +259,7 @@ const POS: React.FC = () => {
                 <div key={item.product.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                   <div className="flex-1">
                     <h4 className="text-sm font-medium text-gray-900">{item.product.name}</h4>
-                    <p className="text-sm text-gray-500">${item.product.price.toFixed(2)} each</p>
+                    <p className="text-sm text-gray-500">฿{item.product.price.toFixed(2)} each</p>
                   </div>
                   <div className="flex items-center space-x-2">
                     <button
@@ -293,15 +294,15 @@ const POS: React.FC = () => {
             <div className="space-y-2 mb-4">
               <div className="flex justify-between text-sm">
                 <span>Subtotal:</span>
-                <span>${cart.subtotal.toFixed(2)}</span>
+                <span>฿{cart.subtotal.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span>Tax (8%):</span>
-                <span>${cart.tax_amount.toFixed(2)}</span>
+                <span>฿{cart.tax_amount.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-lg font-bold border-t pt-2">
                 <span>Total:</span>
-                <span>${cart.total.toFixed(2)}</span>
+                <span>฿{cart.total.toFixed(2)}</span>
               </div>
             </div>
             

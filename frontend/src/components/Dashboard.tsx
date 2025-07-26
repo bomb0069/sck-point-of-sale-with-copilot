@@ -17,7 +17,7 @@ const Dashboard: React.FC = () => {
   const quickStats = [
     {
       name: 'Today\'s Sales',
-      value: '$2,847.50',
+      value: '฿99,662.50',
       change: '+12.5%',
       icon: DollarSign,
       color: 'text-green-600 bg-green-100',
