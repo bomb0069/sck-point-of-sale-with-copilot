@@ -7,8 +7,13 @@ import {
   Customer, 
   Store, 
   Sale,
+  CreateSale,
   SalesReport,
-  ApiResponse 
+  ApiResponse,
+  LoyaltyPointTransaction,
+  LoyaltyPointBalance,
+  CustomerLoyaltySummary,
+  LoyaltyRedemption
 } from '../types';
 
 // Configure base URL for API
@@ -202,7 +207,7 @@ export const getSale = async (id: number): Promise<Sale> => {
   return response.data;
 };
 
-export const createSale = async (saleData: Partial<Sale>): Promise<Sale> => {
+export const createSale = async (saleData: CreateSale): Promise<Sale> => {
   const response = await api.post('/sales', saleData);
   return response.data;
 };
@@ -222,6 +227,47 @@ export const getDailySalesReport = async (date?: string): Promise<SalesReport> =
 export const getMonthlySalesReport = async (month?: string): Promise<SalesReport> => {
   const params = month ? `?month=${month}` : '';
   const response = await api.get(`/sales/reports/monthly${params}`);
+  return response.data;
+};
+
+// Loyalty Points API
+export const getCustomerLoyaltySummary = async (customerId: number): Promise<CustomerLoyaltySummary> => {
+  const response = await api.get(`/customers/${customerId}/loyalty/summary`);
+  return response.data;
+};
+
+export const getCustomerLoyaltyTransactions = async (customerId: number): Promise<LoyaltyPointTransaction[]> => {
+  const response = await api.get(`/customers/${customerId}/loyalty/transactions`);
+  return response.data;
+};
+
+export const getCustomerLoyaltyBalances = async (customerId: number): Promise<LoyaltyPointBalance[]> => {
+  const response = await api.get(`/customers/${customerId}/loyalty/balances`);
+  return response.data;
+};
+
+export const redeemLoyaltyPoints = async (redemption: LoyaltyRedemption): Promise<ApiResponse<{ transaction_id: number }>> => {
+  const response = await api.post('/loyalty/redeem', redemption);
+  return response.data;
+};
+
+export const calculatePointsEarned = async (amount: number): Promise<{ points: number; baht_per_point: number }> => {
+  const response = await api.get(`/loyalty/calculate-points?amount=${amount}`);
+  return response.data;
+};
+
+export const calculatePointsValue = async (points: number): Promise<{ baht_value: number; points_per_baht: number }> => {
+  const response = await api.get(`/loyalty/calculate-value?points=${points}`);
+  return response.data;
+};
+
+export const getAvailableLoyaltyPoints = async (customerId: number): Promise<{ available_points: number; baht_value: number }> => {
+  const response = await api.get(`/customers/${customerId}/loyalty/available`);
+  return response.data;
+};
+
+export const expireLoyaltyPoints = async (): Promise<ApiResponse<{ expired_customers: number; expired_points: number }>> => {
+  const response = await api.post('/loyalty/expire-points');
   return response.data;
 };
 

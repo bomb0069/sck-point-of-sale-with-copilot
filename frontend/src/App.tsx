@@ -5,6 +5,7 @@ import Login from './components/Login';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
 import POS from './components/POS';
+import CustomerManagement from './components/CustomerManagement';
 
 // Protected Route component
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -29,12 +30,7 @@ const Products: React.FC = () => (
   </div>
 );
 
-const Customers: React.FC = () => (
-  <div className="p-6">
-    <h1 className="text-2xl font-bold text-gray-900">Customer Management</h1>
-    <p className="mt-4 text-gray-600">Customer management interface coming soon...</p>
-  </div>
-);
+const Customers: React.FC = () => <CustomerManagement />;
 
 const Reports: React.FC = () => (
   <div className="p-6">

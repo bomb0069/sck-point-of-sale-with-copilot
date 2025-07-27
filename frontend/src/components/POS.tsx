@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, Minus, Trash2, ShoppingCart, DollarSign, X } from 'lucide-react';
-import { Product, CartItem, Cart } from '../types';
+import { Search, Plus, Minus, Trash2, ShoppingCart, DollarSign, X, User, Gift, Star } from 'lucide-react';
+import { Product, CartItem, Cart, Customer, CustomerLoyaltySummary, CreateSale } from '../types';
 import * as api from '../services/api';
 import { formatThaiCurrency, convertUsdToThb } from '../utils/currency';
 
@@ -30,6 +30,15 @@ const POS: React.FC = () => {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [cashReceived, setCashReceived] = useState(0);
   const [selectedBanknotes, setSelectedBanknotes] = useState<{[key: number]: number}>({});
+  
+  // Customer and Loyalty States
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [showCustomerModal, setShowCustomerModal] = useState(false);
+  const [loyaltySummary, setLoyaltySummary] = useState<CustomerLoyaltySummary | null>(null);
+  const [loyaltyPointsToUse, setLoyaltyPointsToUse] = useState(0);
+  const [loyaltyDiscount, setLoyaltyDiscount] = useState(0);
 
   useEffect(() => {
     loadProducts();
@@ -37,7 +46,7 @@ const POS: React.FC = () => {
 
   useEffect(() => {
     calculateTotals();
-  }, [cart.items]);
+  }, [cart.items, loyaltyDiscount]);
 
   const loadProducts = async () => {
     try {
@@ -104,7 +113,7 @@ const POS: React.FC = () => {
     const subtotal = cart.items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
     const tax_rate = 0.08; // 8% tax
     const tax_amount = subtotal * tax_rate;
-    const total = subtotal + tax_amount - cart.discount_amount;
+    const total = subtotal + tax_amount - cart.discount_amount - loyaltyDiscount;
 
     setCart(prev => ({
       ...prev,
@@ -167,6 +176,50 @@ const POS: React.FC = () => {
       discount_amount: 0,
       total: 0,
     });
+    setSelectedCustomer(null);
+    setLoyaltySummary(null);
+    setLoyaltyPointsToUse(0);
+    setLoyaltyDiscount(0);
+  };
+
+  // Customer and Loyalty Functions
+  const loadCustomers = async () => {
+    try {
+      const customerList = await api.getCustomers();
+      setCustomers(Array.isArray(customerList) ? customerList : []);
+    } catch (error) {
+      console.error('Failed to load customers:', error);
+      setCustomers([]); // Ensure customers is always an array
+    }
+  };
+
+  const selectCustomer = async (customer: Customer) => {
+    setSelectedCustomer(customer);
+    setShowCustomerModal(false);
+    
+    try {
+      const summary = await api.getCustomerLoyaltySummary(customer.id);
+      setLoyaltySummary(summary);
+    } catch (error) {
+      console.error('Failed to load customer loyalty summary:', error);
+    }
+  };
+
+  const handleLoyaltyPointsChange = (points: number) => {
+    if (!loyaltySummary) return;
+    
+    const maxPoints = Math.min(
+      loyaltySummary.available_points,
+      Math.floor(cart.total * 10) // Max points that can be used (total * 10 since 1 baht = 10 points)
+    );
+    
+    const validPoints = Math.max(0, Math.min(points, maxPoints));
+    setLoyaltyPointsToUse(validPoints);
+    setLoyaltyDiscount(validPoints * 0.1); // 1 point = 0.1 baht
+  };
+
+  const calculatePointsToEarn = (amount: number): number => {
+    return Math.floor(amount / 100); // 1 point per 100 baht
   };
 
   const processPayment = async () => {
@@ -236,8 +289,51 @@ const POS: React.FC = () => {
     }
 
     try {
-      // TODO: Save transaction to backend
-      alert(`Payment completed!\nCash received: ฿${cashTotal.toFixed(2)}\nChange: ฿${changeAmount.toFixed(2)}`);
+      // Redeem loyalty points if any
+      if (loyaltyPointsToUse > 0 && selectedCustomer) {
+        await api.redeemLoyaltyPoints({
+          customer_id: selectedCustomer.id,
+          points_to_redeem: loyaltyPointsToUse,
+          baht_amount: loyaltyDiscount
+        });
+      }
+
+      // Create sale transaction
+      const saleData: CreateSale = {
+        customer_id: selectedCustomer?.id,
+        subtotal: cart.subtotal,
+        tax_amount: cart.tax_amount,
+        discount_amount: cart.discount_amount,
+        loyalty_points_used: loyaltyPointsToUse,
+        loyalty_discount_amount: loyaltyDiscount,
+        total_amount: cart.total,
+        payment_method: 'cash' as const,
+        payment_status: 'completed' as const,
+        items: cart.items.map(item => ({
+          product_id: item.product.id,
+          product_name: item.product.name,
+          quantity: item.quantity,
+          unit_price: item.product.price,
+          discount_amount: item.discount,
+          subtotal: item.product.price * item.quantity - item.discount
+        }))
+      };
+
+      await api.createSale(saleData);
+      
+      const pointsEarned = calculatePointsToEarn(cart.total);
+      
+      let successMessage = `Payment completed!\nCash received: ฿${cashTotal.toFixed(2)}\nChange: ฿${changeAmount.toFixed(2)}`;
+      
+      if (loyaltyPointsToUse > 0) {
+        successMessage += `\nLoyalty points used: ${loyaltyPointsToUse} (฿${loyaltyDiscount.toFixed(2)} discount)`;
+      }
+      
+      if (pointsEarned > 0) {
+        successMessage += `\nPoints earned: ${pointsEarned}`;
+      }
+      
+      alert(successMessage);
       
       // Reset everything
       clearCart();
@@ -379,6 +475,85 @@ const POS: React.FC = () => {
           )}
         </div>
 
+        {/* Customer Section */}
+        {cart.items.length > 0 && (
+          <div className="border-t border-gray-200 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-medium text-gray-700">Customer</h3>
+              <button
+                onClick={() => {
+                  loadCustomers();
+                  setShowCustomerModal(true);
+                }}
+                className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+              >
+                {selectedCustomer ? 'Change' : 'Select Customer'}
+              </button>
+            </div>
+            
+            {selectedCustomer ? (
+              <div className="bg-blue-50 rounded-lg p-3 mb-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-blue-900">{selectedCustomer.name}</p>
+                    {selectedCustomer.email && (
+                      <p className="text-sm text-blue-700">{selectedCustomer.email}</p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => {
+                      setSelectedCustomer(null);
+                      setLoyaltySummary(null);
+                      setLoyaltyPointsToUse(0);
+                      setLoyaltyDiscount(0);
+                    }}
+                    className="text-blue-600 hover:text-blue-800"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                
+                {loyaltySummary && (
+                  <div className="mt-2 pt-2 border-t border-blue-200">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm text-blue-700">Available Points:</span>
+                      <span className="text-sm font-medium text-blue-900">
+                        {loyaltySummary.available_points} (฿{loyaltySummary.available_baht_value.toFixed(2)})
+                      </span>
+                    </div>
+                    
+                    {loyaltySummary.available_points > 0 && (
+                      <div className="space-y-2">
+                        <label className="text-sm text-blue-700">Use Points:</label>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="range"
+                            min="0"
+                            max={Math.min(loyaltySummary.available_points, Math.floor(cart.total * 10))}
+                            value={loyaltyPointsToUse}
+                            onChange={(e) => handleLoyaltyPointsChange(parseInt(e.target.value))}
+                            className="flex-1"
+                          />
+                          <span className="text-sm font-medium text-blue-900 w-12">
+                            {loyaltyPointsToUse}
+                          </span>
+                        </div>
+                        <div className="text-xs text-blue-600">
+                          Discount: ฿{loyaltyDiscount.toFixed(2)}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-sm text-gray-500 italic">
+                Select a customer to earn and use loyalty points
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Cart Summary */}
         {cart.items.length > 0 && (
           <div className="border-t border-gray-200 p-4">
@@ -391,10 +566,22 @@ const POS: React.FC = () => {
                 <span>Tax (8%):</span>
                 <span>฿{cart.tax_amount.toFixed(2)}</span>
               </div>
+              {loyaltyDiscount > 0 && (
+                <div className="flex justify-between text-sm text-green-600">
+                  <span>Loyalty Discount ({loyaltyPointsToUse} points):</span>
+                  <span>-฿{loyaltyDiscount.toFixed(2)}</span>
+                </div>
+              )}
               <div className="flex justify-between text-lg font-bold border-t pt-2">
                 <span>Total:</span>
                 <span>฿{cart.total.toFixed(2)}</span>
               </div>
+              {selectedCustomer && cart.total > 0 && (
+                <div className="flex justify-between text-sm text-blue-600 mt-1">
+                  <span>Points to earn:</span>
+                  <span>{calculatePointsToEarn(cart.total)} points</span>
+                </div>
+              )}
             </div>
             
             <button
@@ -522,6 +709,90 @@ const POS: React.FC = () => {
                 className="w-full py-2 px-4 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
               >
                 Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Customer Selection Modal */}
+      {showCustomerModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold">Select Customer</h2>
+              <button
+                onClick={() => setShowCustomerModal(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            {/* Customer Search */}
+            <div className="relative mb-4">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search customers..."
+                value={customerSearch}
+                onChange={(e) => setCustomerSearch(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+
+            {/* Customer List */}
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              {(customers || [])
+                .filter(customer => 
+                  customer.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
+                  customer.email?.toLowerCase().includes(customerSearch.toLowerCase()) ||
+                  customer.phone?.includes(customerSearch)
+                )
+                .map(customer => (
+                  <button
+                    key={customer.id}
+                    onClick={() => selectCustomer(customer)}
+                    className="w-full text-left p-3 rounded-lg border border-gray-200 hover:bg-blue-50 hover:border-blue-300 transition-colors"
+                  >
+                    <div className="font-medium text-gray-900">{customer.name}</div>
+                    {customer.email && (
+                      <div className="text-sm text-gray-600">{customer.email}</div>
+                    )}
+                    {customer.phone && (
+                      <div className="text-sm text-gray-600">{customer.phone}</div>
+                    )}
+                    <div className="text-sm text-blue-600 mt-1">
+                      {customer.loyalty_points} loyalty points
+                    </div>
+                  </button>
+                ))
+              }
+              
+              {customers.length === 0 && (
+                <div className="text-center text-gray-500 py-4">
+                  No customers found
+                </div>
+              )}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex space-x-2 mt-4">
+              <button
+                onClick={() => setShowCustomerModal(false)}
+                className="flex-1 py-2 px-4 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setSelectedCustomer(null);
+                  setLoyaltySummary(null);
+                  setShowCustomerModal(false);
+                }}
+                className="flex-1 py-2 px-4 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+              >
+                No Customer
               </button>
             </div>
           </div>

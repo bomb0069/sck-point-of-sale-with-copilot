@@ -86,6 +86,23 @@ func SetupRouter(db *sql.DB, cfg *config.Config) *gin.Engine {
 				customers.GET("/:id", customerHandler.GetCustomer)
 				customers.PUT("/:id", customerHandler.UpdateCustomer)
 				customers.DELETE("/:id", customerHandler.DeleteCustomer)
+				
+				// Loyalty points sub-routes
+				loyaltyHandler := handlers.NewLoyaltyHandler(db)
+				customers.GET("/:id/loyalty/summary", loyaltyHandler.GetCustomerLoyaltySummary)
+				customers.GET("/:id/loyalty/transactions", loyaltyHandler.GetCustomerLoyaltyTransactions)
+				customers.GET("/:id/loyalty/balances", loyaltyHandler.GetCustomerLoyaltyBalances)
+				customers.GET("/:id/loyalty/available", loyaltyHandler.GetAvailableLoyaltyPoints)
+			}
+
+			// Loyalty points routes
+			loyalty := protected.Group("/loyalty")
+			{
+				loyaltyHandler := handlers.NewLoyaltyHandler(db)
+				loyalty.POST("/redeem", loyaltyHandler.RedeemLoyaltyPoints)
+				loyalty.GET("/calculate-points", loyaltyHandler.CalculatePointsEarned)
+				loyalty.GET("/calculate-value", loyaltyHandler.CalculatePointsValue)
+				loyalty.POST("/expire-points", loyaltyHandler.ExpireLoyaltyPoints)
 			}
 
 			// Sales routes

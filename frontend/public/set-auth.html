@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Set Authentication Token</title>
+</head>
+<body>
+    <h1>Setting Authentication Token...</h1>
+    <p>This will set the admin token for testing the loyalty system.</p>
+    
+    <script>
+        // Set the admin token in localStorage
+        const token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTM2NzMxMzIsInJvbGUiOiJhZG1pbiIsInVzZXJfaWQiOjEsInVzZXJuYW1lIjoiYWRtaW4ifQ.FXFc5H9mpKepIdXchCQou8zIPtBO1qByQKsnIEi4h38";
+        localStorage.setItem('pos_token', token);
+        
+        // Redirect to the main app
+        setTimeout(() => {
+            window.location.href = '/';
+        }, 1000);
+        
+        document.body.innerHTML += '<p><strong>Token set successfully!</strong> Redirecting to POS system...</p>';
+    </script>
+</body>
+</html>

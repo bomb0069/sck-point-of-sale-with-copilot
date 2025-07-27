@@ -45,9 +45,54 @@ export interface Customer {
   phone?: string;
   address?: string;
   loyalty_points: number;
+  available_points?: number;
+  available_baht_value?: number;
   is_active: boolean;
   created_at: string;
   updated_at: string;
+}
+
+// Loyalty Points types
+export interface LoyaltyPointTransaction {
+  id: number;
+  customer_id: number;
+  transaction_type: 'earned' | 'redeemed' | 'expired';
+  points: number;
+  sale_id?: number;
+  baht_amount?: number;
+  expiry_date?: string;
+  notes?: string;
+  created_at: string;
+}
+
+export interface LoyaltyPointBalance {
+  id: number;
+  customer_id: number;
+  points: number;
+  earned_date: string;
+  expiry_date: string;
+  is_expired: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CustomerLoyaltySummary {
+  id: number;
+  name: string;
+  email?: string;
+  phone?: string;
+  total_points: number;
+  available_points: number;
+  available_baht_value: number;
+  total_transactions: number;
+  total_spent: number;
+  member_since: string;
+}
+
+export interface LoyaltyRedemption {
+  customer_id: number;
+  points_to_redeem: number;
+  baht_amount: number;
 }
 
 // Store types
@@ -72,6 +117,8 @@ export interface Sale {
   subtotal: number;
   tax_amount: number;
   discount_amount: number;
+  loyalty_points_used?: number;
+  loyalty_discount_amount?: number;
   total_amount: number;
   payment_method: 'cash' | 'card' | 'digital_wallet' | 'mixed';
   payment_status: 'pending' | 'completed' | 'refunded';
@@ -89,6 +136,31 @@ export interface SaleItem {
   unit_price: number;
   discount_amount: number;
   subtotal: number;
+}
+
+// For creating sale items (without id and sale_id)
+export interface CreateSaleItem {
+  product_id: number;
+  product_name: string;
+  quantity: number;
+  unit_price: number;
+  discount_amount: number;
+  subtotal: number;
+}
+
+// For creating sales
+export interface CreateSale {
+  customer_id?: number;
+  subtotal: number;
+  tax_amount: number;
+  discount_amount: number;
+  loyalty_points_used?: number;
+  loyalty_discount_amount?: number;
+  total_amount: number;
+  payment_method: 'cash' | 'card' | 'digital_wallet' | 'mixed';
+  payment_status: 'pending' | 'completed' | 'refunded';
+  notes?: string;
+  items: CreateSaleItem[];
 }
 
 // Cart types for POS interface
